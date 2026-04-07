@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* 1. Force the root HTML/Body to stretch edge-to-edge */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #020617; /* matches slate-950 */
+  overflow-x: hidden;
+}
+
+/* 2. Custom Scrollbar for your Live Feed Table */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.5); /* slate-800 */
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.8); /* slate-600 */
+  border-radius: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 1); /* slate-500 */
+}
