@@ -25,6 +25,10 @@ app.use('/api/scan', scanRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: "Awake", timestamp: Date.now() });
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => console.log(`SafeTabGuard V2 Backend running on port ${PORT}`));

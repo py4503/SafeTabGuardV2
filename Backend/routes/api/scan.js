@@ -120,11 +120,11 @@ const checkUrlHeuristics = (url) => {
     }
 };
 
-// Check-3 : AWS Bedrock AI Content Analysis
+// Check-3 : AI Content Analysis
 const analyzeContentWithAi = async (htmlContent) => {
     // 1. Fixed Model Version (use 1.5 or 2.0 depending on your SDK version)
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         generationConfig: {
             // Excellent use of JSON mode!
             responseMimeType: "application/json"
@@ -142,6 +142,8 @@ const analyzeContentWithAi = async (htmlContent) => {
     If no vulnerabilities are found, return {"safe": true, "score": 0, threatType: "None", "vulnerabilities": []}.
 
     Code to analyze: <code>${htmlContent}</code>`;
+
+    console.log("API KEY CHECK:", process.env.GEMINI_API_KEY ? "✅ KEY IS LOADED" : "❌ KEY IS MISSING");
 
     try {
         const startTime = Date.now();
@@ -265,82 +267,107 @@ router.post('/check-url-fast', async (req, res) => {
 // Endpoint for ai
 
 // Endpoint for ai
-// Endpoint for ai
 router.post('/analyze-content-ai', async (req, res) => {
     const { url, htmlContent } = req.body;
     if (!url || !htmlContent) return res.status(400).json({ error: 'URL and htmlContent are required.' });
 
-    const aiResult = await analyzeContentWithAi(htmlContent);
-    const aiVulnerabilities = aiResult.vulnerabilities || [];
-    const aiScore = aiResult.score || 0;
-
-    // Extract the threatType we forced the AI to generate
-    const aiThreatType = aiResult.threatType || "Suspicious";
-    const scoreThreshold = 50;
-
-    let decision;
-    
-    // ==========================================
-    // 1. SAVE TELEMETRY TO MONGODB FIRST
-    // ==========================================
-    if (aiResult.telemetry) {
-        try {
-            const newLog = new AiAnalysisLog({
-                url: url,
-                latencyMs: aiResult.telemetry.latencyMs,
-                promptTokens: aiResult.telemetry.promptTokens,
-                completionTokens: aiResult.telemetry.completionTokens,
-                vulnerabilitiesFound: aiVulnerabilities // Saving the exact array of objects
+    try {
+        // ==========================================
+        // OPTIMIZATION: CHECK CACHE FIRST
+        // ==========================================
+        const cachedThreat = await ThreatIntelligence.findOne({ url: url });
+        
+        if (cachedThreat) {
+            console.log(`[AI Scan] Cache Hit! Skipping LLM for: ${url}`);
+            
+            // Return exactly the format the frontend expects, but instantly!
+            return res.json({
+                safe: cachedThreat.safe,
+                vulnerabilities: cachedThreat.vulnerabilities || [],
+                score: cachedThreat.score || 0,
+                threatType: cachedThreat.threatType || (cachedThreat.safe ? "None" : "Suspicious"),
+                telemetry: null // No tokens used, so telemetry is null
             });
-            await newLog.save();
-        } catch (err) {
-            console.error("[Backend] Failed to save AI telemetry", err);
-        }
-    }
-
-    // Updated check to include aiResult.safe
-    if (aiVulnerabilities.length > 0 || aiScore >= scoreThreshold || aiResult.safe === false) {
-        decision = {
-            safe: false,
-            vulnerabilities: aiVulnerabilities,
-            score: aiScore,
-            threatType: aiThreatType, 
-            telemetry: aiResult.telemetry 
-        };
-
-        // ==========================================
-        // 2. SAVE THREAT INTELLIGENCE TO MONGODB
-        // ==========================================
-        try {
-            // Upsert logic: Update if it exists, create if it doesn't
-            await ThreatIntelligence.findOneAndUpdate(
-                { url: url },
-                {
-                    threatType: aiThreatType,
-                    score: aiScore,
-                    safe: false,
-                    vulnerabilities: aiVulnerabilities,
-                    lastAnalyzedAt: Date.now()
-                },
-                { upsert: true, new: true }
-            );
-        } catch (err) {
-            console.error("[Backend] Failed to save Threat Intel", err);
         }
 
-    } else {
-        decision = {
-            safe: true,
-            vulnerabilities: [],
-            score: aiScore,
-            threatType: "None",
-            telemetry: aiResult.telemetry
-        };
-    }
+        // ==========================================
+        // CACHE MISS: PROCEED WITH AI ANALYSIS
+        // ==========================================
+        console.log(`[AI Scan] Cache Miss. Triggering LLM for: ${url}`);
+        
+        const aiResult = await analyzeContentWithAi(htmlContent);
+        const aiVulnerabilities = aiResult.vulnerabilities || [];
+        const aiScore = aiResult.score || 0;
 
-    return res.json(decision);
+        // Extract the threatType we forced the AI to generate
+        const aiThreatType = aiResult.threatType || "Suspicious";
+        const scoreThreshold = 50;
+
+        let decision;
+        
+        // ==========================================
+        // 1. SAVE TELEMETRY TO MONGODB FIRST
+        // ==========================================
+        if (aiResult.telemetry) {
+            try {
+                const newLog = new AiAnalysisLog({
+                    url: url,
+                    latencyMs: aiResult.telemetry.latencyMs,
+                    promptTokens: aiResult.telemetry.promptTokens,
+                    completionTokens: aiResult.telemetry.completionTokens,
+                    vulnerabilitiesFound: aiVulnerabilities
+                });
+                await newLog.save();
+            } catch (err) {
+                console.error("[Backend] Failed to save AI telemetry", err);
+            }
+        }
+
+        // Updated check to include aiResult.safe
+        if (aiVulnerabilities.length > 0 || aiScore >= scoreThreshold || aiResult.safe === false) {
+            decision = {
+                safe: false,
+                vulnerabilities: aiVulnerabilities,
+                score: aiScore,
+                threatType: aiThreatType, 
+                telemetry: aiResult.telemetry 
+            };
+
+            // ==========================================
+            // 2. SAVE THREAT INTELLIGENCE TO MONGODB
+            // ==========================================
+            try {
+                await ThreatIntelligence.findOneAndUpdate(
+                    { url: url },
+                    {
+                        threatType: aiThreatType,
+                        score: aiScore,
+                        safe: false,
+                        vulnerabilities: aiVulnerabilities,
+                        lastAnalyzedAt: Date.now()
+                    },
+                    { upsert: true, new: true }
+                );
+            } catch (err) {
+                console.error("[Backend] Failed to save Threat Intel", err);
+            }
+
+        } else {
+            decision = {
+                safe: true,
+                vulnerabilities: [],
+                score: aiScore,
+                threatType: "None",
+                telemetry: aiResult.telemetry
+            };
+        }
+
+        return res.json(decision);
+
+    } catch (error) {
+        console.error("[Backend] Unexpected error in /analyze-content-ai:", error);
+        return res.status(500).json({ error: 'Internal server error during analysis.' });
+    }
 });
-
-module.exports = router;
 
 module.exports = router;
