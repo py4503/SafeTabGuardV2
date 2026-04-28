@@ -14,49 +14,83 @@ const Device = require('../../models/Device');
  * @desc    Logs a new blocked threat (Called silently by background.js)
  * @access  Public
  */
+
 router.post('/log', async (req, res) => {
     const { deviceId, url, eventType, actionTaken, threatType } = req.body;
 
+    // FAIL-SAFE 1: Strict payload validation
     if (!deviceId || !url || !eventType) {
         return res.status(400).json({ error: 'Missing required fields for logging.' });
     }
 
+    // FAIL-SAFE 2: Prevent Mongoose CastErrors from crashing the Render server
+    if (!mongoose.Types.ObjectId.isValid(deviceId)) {
+        return res.status(400).json({ error: 'Invalid device ID format.' });
+    }
+
     try {
+        // FAIL-SAFE 3: Ensure the device actually exists in the DB
         const device = await Device.findById(deviceId);
-        if (!device) return res.status(404).json({ error: 'Device not registered.' });
+        if (!device) {
+            console.warn(`[Analytics] Unregistered device attempted to log: ${deviceId}`);
+            return res.status(404).json({ error: 'Device not registered.' });
+        }
 
         // 1. Find or Create the Global Threat Intelligence
         let threat = await ThreatIntelligence.findOne({ url: url });
+        let resolvedThreatType = threatType || 'Suspicious';
         
         if (!threat) {
+            // New threat detected globally
             threat = new ThreatIntelligence({
                 url: url,
-                threatType: threatType || 'Suspicious', 
+                threatType: resolvedThreatType, 
                 safe: false, 
-                score: 80    
+                score: (resolvedThreatType === 'Malware' || resolvedThreatType === 'Phishing') ? 95 : 80    
             });
             await threat.save();
-        } else if (threatType === 'Malware' || threatType === 'Phishing') {
-            // OPTIMIZATION: If the URL was previously "Tracker" but is now "Malware",
-            // update the global knowledge base so future scans know it's highly dangerous!
-            if (threat.threatType !== threatType) {
-                threat.threatType = threatType;
-                threat.score = 95; // Escalate risk score
+        } else {
+            // OPTIMIZATION: Escalate global risk if AI finds something worse
+            if ((resolvedThreatType === 'Malware' || resolvedThreatType === 'Phishing') && threat.threatType !== resolvedThreatType) {
+                threat.threatType = resolvedThreatType;
+                threat.score = 95; 
                 await threat.save();
+            } else {
+                // If we aren't escalating, make sure our local variable matches the DB
+                resolvedThreatType = threat.threatType; 
             }
         }
 
-        // 2. Create the IMMUTABLE Time-Series Event
+        // 2. THE DEDUPLICATION FIX: 2-Minute Time-Windowed Upsert
+        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+        const existingEvent = await DetectionEvent.findOne({
+            deviceId: device._id,
+            threatId: threat._id,
+            timestamp: { $gte: twoMinutesAgo }
+        });
+
+        if (existingEvent) {
+            // UPGRADE the existing heuristic log to the smarter AI log
+            existingEvent.eventType = eventType; // e.g., Upgrades to 'Blocked_by_AI'
+            existingEvent.recordedThreatType = resolvedThreatType; // Fixes the Dashboard Pie Chart!
+            existingEvent.actionTaken = actionTaken || existingEvent.actionTaken;
+            
+            await existingEvent.save();
+            return res.status(200).json({ message: 'Existing event upgraded with AI categorization.' });
+        }
+
+        // 3. Create a brand new event if no recent duplicate exists
         const newEvent = new DetectionEvent({
             threatId: threat._id,
             deviceId: device._id,
             eventType: eventType, 
             actionTaken: actionTaken || 'Blocked',
-            recordedThreatType: threatType || 'Suspicious' // The Point-In-Time Snapshot!
+            recordedThreatType: resolvedThreatType, // The Point-In-Time Snapshot for the Pie Chart
+            timestamp: new Date()
         });
+        
         await newEvent.save();
-
-        return res.status(201).json({ message: 'Threat logged successfully.' });
+        return res.status(201).json({ message: 'New threat logged successfully.' });
 
     } catch (error) {
         console.error('[Analytics] Error logging event:', error);

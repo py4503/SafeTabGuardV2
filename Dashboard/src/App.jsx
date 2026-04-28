@@ -7,150 +7,150 @@ import ThreatTrendChart from './components/ThreatTrendChart';
 
 // --- MOCK DATA FOR UI TESTING ---
 
-export const mockSummaryData = {
-  totalThreatsMitigated: 1428,
-  trackersBlocked: 942,
-  phishingPrevented: 47,
-  malwareStopped: 12,
-  webrtcLeaksMasked: 427,
+// export const mockSummaryData = {
+//   totalThreatsMitigated: 1428,
+//   trackersBlocked: 942,
+//   phishingPrevented: 47,
+//   malwareStopped: 12,
+//   webrtcLeaksMasked: 427,
   
-  // The perfectly formatted 7-day trend (Notice the 0-day to test your chart!)
-  weeklyTrend: [
-    { date: "Apr 01", threats: 145 },
-    { date: "Apr 02", threats: 189 },
-    { date: "Apr 03", threats: 214 },
-    { date: "Apr 04", threats: 0 },   // Simulates a day the user didn't open Chrome
-    { date: "Apr 05", threats: 412 }, // Simulates a huge spike (maybe visited a sketchy site)
-    { date: "Apr 06", threats: 290 },
-    { date: "Apr 07", threats: 178 }
-  ]
-};
+//   // The perfectly formatted 7-day trend (Notice the 0-day to test your chart!)
+//   weeklyTrend: [
+//     { date: "Apr 01", threats: 145 },
+//     { date: "Apr 02", threats: 189 },
+//     { date: "Apr 03", threats: 214 },
+//     { date: "Apr 04", threats: 0 },   // Simulates a day the user didn't open Chrome
+//     { date: "Apr 05", threats: 412 }, // Simulates a huge spike (maybe visited a sketchy site)
+//     { date: "Apr 06", threats: 290 },
+//     { date: "Apr 07", threats: 178 }
+//   ]
+// };
 
-export const mockRecentLogs = [
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e1",
-    eventType: "Network_Request_Blocked",
-    actionTaken: "Blocked",
-    recordedThreatType: "Malware",
-    createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(), // 2 mins ago
-    threatId: {
-      url: "https://freedownload-movies-hd-1080p.sketchysite.ru/payload.exe",
-      threatType: "Malware",
-      score: 98
-    }
-  },
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e2",
-    eventType: "Network_Request_Blocked",
-    actionTaken: "Blocked",
-    recordedThreatType: "Phishing",
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
-    threatId: {
-      url: "http://secure-update-paypal-billing-auth.com/login",
-      threatType: "Phishing",
-      score: 95
-    }
-  },
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e3",
-    eventType: "WebRTC_Masked",
-    actionTaken: "IP Masked",
-    recordedThreatType: "Tracker",
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
-    threatId: {
-      url: "https://omegle-clone-chat.tv/room/1a2b3c",
-      threatType: "Tracker",
-      score: 65
-    }
-  },
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e4",
-    eventType: "Network_Request_Blocked",
-    actionTaken: "Blocked",
-    recordedThreatType: "Tracker",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    threatId: {
-      url: "https://connect.facebook.net/en_US/fbevents.js",
-      threatType: "Tracker",
-      score: 80
-    }
-  },
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e5",
-    eventType: "Canvas_Poisoned",
-    actionTaken: "Fingerprint Randomized",
-    recordedThreatType: "Tracker",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
-    threatId: {
-      url: "https://fingerprintjs.com/demo/",
-      threatType: "Tracker",
-      score: 85
-    }
-  },
-  {
-    _id: "65a1b2c3d4e5f6a7b8c9d0e6",
-    eventType: "Network_Request_Blocked",
-    actionTaken: "Blocked",
-    recordedThreatType: "Suspicious",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-    threatId: {
-      // Testing a super long URL to ensure your UI truncates it properly!
-      url: "https://ad-delivery-network.metrics.com/v1/track?user_id=89123&session=abc&ref=google",
-      threatType: "Tracker", 
-      score: 45
-    }
-  }
-];
+// export const mockRecentLogs = [
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e1",
+//     eventType: "Network_Request_Blocked",
+//     actionTaken: "Blocked",
+//     recordedThreatType: "Malware",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(), // 2 mins ago
+//     threatId: {
+//       url: "https://freedownload-movies-hd-1080p.sketchysite.ru/payload.exe",
+//       threatType: "Malware",
+//       score: 98
+//     }
+//   },
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e2",
+//     eventType: "Network_Request_Blocked",
+//     actionTaken: "Blocked",
+//     recordedThreatType: "Phishing",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
+//     threatId: {
+//       url: "http://secure-update-paypal-billing-auth.com/login",
+//       threatType: "Phishing",
+//       score: 95
+//     }
+//   },
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e3",
+//     eventType: "WebRTC_Masked",
+//     actionTaken: "IP Masked",
+//     recordedThreatType: "Tracker",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+//     threatId: {
+//       url: "https://omegle-clone-chat.tv/room/1a2b3c",
+//       threatType: "Tracker",
+//       score: 65
+//     }
+//   },
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e4",
+//     eventType: "Network_Request_Blocked",
+//     actionTaken: "Blocked",
+//     recordedThreatType: "Tracker",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+//     threatId: {
+//       url: "https://connect.facebook.net/en_US/fbevents.js",
+//       threatType: "Tracker",
+//       score: 80
+//     }
+//   },
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e5",
+//     eventType: "Canvas_Poisoned",
+//     actionTaken: "Fingerprint Randomized",
+//     recordedThreatType: "Tracker",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
+//     threatId: {
+//       url: "https://fingerprintjs.com/demo/",
+//       threatType: "Tracker",
+//       score: 85
+//     }
+//   },
+//   {
+//     _id: "65a1b2c3d4e5f6a7b8c9d0e6",
+//     eventType: "Network_Request_Blocked",
+//     actionTaken: "Blocked",
+//     recordedThreatType: "Suspicious",
+//     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
+//     threatId: {
+//       // Testing a super long URL to ensure your UI truncates it properly!
+//       url: "https://ad-delivery-network.metrics.com/v1/track?user_id=89123&session=abc&ref=google",
+//       threatType: "Tracker", 
+//       score: 45
+//     }
+//   }
+// ];
 
 function App() {
-  const [summary, setSummary] = useState(mockSummaryData);
-  const [recentLogs, setRecentLogs] = useState(mockRecentLogs);
+  const [summary, setSummary] = useState(null);
+  const [recentLogs, setRecentLogs] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // const fetchDashboardData = async () => {
-  //   setLoading(true);
-  //   setError(null);
-  //   try {
-  //     // 1. SAFETY CHECK: Ensure Chrome API exists before calling it to prevent minified crashes
-  //     if (!window.chrome || !window.chrome.storage || !window.chrome.storage.local) {
-  //       throw new Error("Chrome Storage API not ready. Are you running this inside the extension?");
-  //     }
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 1. SAFETY CHECK: Ensure Chrome API exists before calling it to prevent minified crashes
+      if (!window.chrome || !window.chrome.storage || !window.chrome.storage.local) {
+        throw new Error("Chrome Storage API not ready. Are you running this inside the extension?");
+      }
 
-  //     // 2. Ask Chrome for the user's specific Database ID
-  //     const data = await new Promise((resolve) => {
-  //         window.chrome.storage.local.get(['mongoDeviceId'], resolve);
-  //     });
+      // 2. Ask Chrome for the user's specific Database ID
+      const data = await new Promise((resolve) => {
+          window.chrome.storage.local.get(['mongoDeviceId'], resolve);
+      });
       
-  //     const deviceId = data.mongoDeviceId;
+      const deviceId = data.mongoDeviceId;
 
-  //     if (!deviceId) {
-  //       throw new Error("Device not synced with backend yet. Please refresh the extension.");
-  //     }
+      if (!deviceId) {
+        throw new Error("Device not synced with backend yet. Please refresh the extension.");
+      }
 
-  //     // 3. Pass the deviceId in the URL
-  //     const [summaryRes, logsRes] = await Promise.all([
-  //       fetch(`http://localhost:5000/api/analytics/summary?deviceId=${deviceId}`),
-  //       fetch(`http://localhost:5000/api/analytics/recent?deviceId=${deviceId}`)
-  //     ]);
+      // 3. Pass the deviceId in the URL
+      const [summaryRes, logsRes] = await Promise.all([
+        fetch(`https://safetabguardv2.onrender.com/api/analytics/summary?deviceId=${deviceId}`),
+        fetch(`https://safetabguardv2.onrender.com/api/analytics/recent?deviceId=${deviceId}`)
+      ]);
 
-  //     if (!summaryRes.ok || !logsRes.ok) {
-  //        throw new Error('Backend server rejected the request.');
-  //     }
+      if (!summaryRes.ok || !logsRes.ok) {
+         throw new Error('Backend server rejected the request.');
+      }
 
-  //     setSummary(await summaryRes.json());
-  //     setRecentLogs(await logsRes.json());
-  //   } catch (err) {
-  //     console.error("Dashboard Fetch Error:", err);
-  //     setError(err.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      setSummary(await summaryRes.json());
+      setRecentLogs(await logsRes.json());
+    } catch (err) {
+      console.error("Dashboard Fetch Error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // useEffect(() => {
-  //   fetchDashboardData();
-  // }, []);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-slate-950 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-black text-slate-200 font-sans selection:bg-cyan-500/30 flex justify-center">
@@ -183,7 +183,7 @@ function App() {
           </div>
           
           <button 
-            // onClick={fetchDashboardData}
+            onClick={fetchDashboardData}
             disabled={loading}
             className="group flex items-center justify-center gap-2 px-6 py-3 bg-slate-800/50 hover:bg-slate-700/80 border border-slate-600/50 rounded-xl transition-all duration-300 shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none w-full md:w-auto backdrop-blur-md"
           >

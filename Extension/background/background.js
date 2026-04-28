@@ -3,7 +3,7 @@
 importScripts('webrtc_manager.js');
 
 // API Endpoints
-const API_BASE = 'http://localhost:5000/api'; // Change to Render URL in production
+const API_BASE = 'https://safetabguardv2.onrender.com/api'; // Change to Render URL in production
 const FAST_CHECK_URL = `${API_BASE}/scan/check-url-fast`;
 const AI_ANALYSIS_URL = `${API_BASE}/scan/analyze-content-ai`;
 const REGISTER_DEVICE_URL = `${API_BASE}/devices/register`;
@@ -164,7 +164,7 @@ async function initiateSecurityCheck(url, tabId, strictAiMode) {
                 blockedUrl: url,
                 simpleReasons: fastResult.simple_reasons || [],
                 aiVulnerabilities: [],
-                score: 0,
+                score: fastResult.score || 0,
                 isAiScanning: true,
                 lastBlockedSite: { url: url, timestamp: new Date().toISOString() },
             };
@@ -225,8 +225,9 @@ async function performAiAnalysis(url, tabId, preFetchedHtml = null) {
             const dataToStore = {
                 ...currentData,
                 aiVulnerabilities: aiResult.vulnerabilities || [],
-                score: Math.max(currentData.score || 0, aiResult.score || 0),
+                score: aiResult.safe === false ? (aiResult.score || currentData.score) : currentData.score,
                 isAiScanning: false,
+                threatType: aiResult.threatType
             };
             chrome.storage.local.set(dataToStore);
         });

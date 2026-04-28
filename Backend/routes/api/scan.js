@@ -265,8 +265,6 @@ router.post('/check-url-fast', async (req, res) => {
 });
 
 // Endpoint for ai
-
-// Endpoint for ai
 router.post('/analyze-content-ai', async (req, res) => {
     const { url, htmlContent } = req.body;
     if (!url || !htmlContent) return res.status(400).json({ error: 'URL and htmlContent are required.' });

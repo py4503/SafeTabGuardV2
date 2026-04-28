@@ -80,11 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.storage.local.get(['blockedUrl', 'simpleReasons', 'aiVulnerabilities', 'score', 'isAiScanning'], (data) => {
             blockedUrl = data.blockedUrl || '';
             blockedUrlElement.textContent = blockedUrl;
-            if (data.score) riskScoreElement.textContent = data.score;
-            
+            if (data.isAiScanning) {
+                if (riskScoreElement) riskScoreElement.innerHTML = '<span class="animate-pulse">...</span>'; // Shows a pulsing "..."
+            } else {
+                if (riskScoreElement && data.score) riskScoreElement.textContent = data.score;
+            }
+
             reasonsListElement.innerHTML = '';
             if (data.simpleReasons?.length > 0) renderSimpleReasons(data.simpleReasons);
-            
+
             // Note: background.js sets local storage key as 'aiVulnerabilities', so this remains correct
             if (data.aiVulnerabilities?.length > 0) renderAiVulnerabilities(data.aiVulnerabilities);
 
@@ -100,26 +104,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    chrome.runtime.onMessage.addListener((message) => {
-        if (message.type === 'aiAnalysisComplete') {
-            const payload = message.payload;
-            if (riskScoreElement && payload.score) riskScoreElement.textContent = payload.score;
-            
-            // V2 FEATURE: Display the dynamic Threat Type Badge
-            if (payload.threatType) renderThreatBadge(payload.threatType);
+    // Inside warning.js -> Replace chrome.runtime.onMessage with this:
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        // Watch for the exact moment the AI scan finishes
+        if (areaName === 'local' && changes.isAiScanning && changes.isAiScanning.newValue === false) {
 
-            // V2 FIX: Mapped to the new 'payload.vulnerabilities' key
-            if (payload.safe === false && payload.vulnerabilities?.length > 0) {
-                renderAiVulnerabilities(payload.vulnerabilities);
-            } else {
-                const loadingState = document.getElementById('ai-loading-state');
-                if (loadingState) {
-                    loadingState.className = 'bg-slate-900/60 p-3 rounded-md border border-slate-700 flex items-center gap-3';
-                    loadingState.innerHTML = `
+            // Pull the freshly saved data from storage
+            chrome.storage.local.get(['aiVulnerabilities', 'score', 'threatType'], (data) => {
+
+                if (riskScoreElement && data.score) riskScoreElement.textContent = data.score;
+                if (data.threatType) renderThreatBadge(data.threatType);
+
+                if (data.aiVulnerabilities?.length > 0) {
+                    renderAiVulnerabilities(data.aiVulnerabilities);
+                } else {
+                    // If it's safe but we still had simple heuristics, turn the loader into a green check
+                    const loadingState = document.getElementById('ai-loading-state');
+                    if (loadingState) {
+                        loadingState.className = 'bg-slate-900/60 p-3 rounded-md border border-slate-700 flex items-center gap-3';
+                        loadingState.innerHTML = `
                         <svg class="w-5 h-5 text-green-400 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" /></svg>
                         <span class="text-slate-300">Deep content scan complete. No additional threats found.</span>`;
+                    }
                 }
-            }
+            });
         }
     });
 
