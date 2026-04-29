@@ -195,6 +195,7 @@ async function initiateSecurityCheck(url, tabId, strictAiMode) {
 }
 
 // --- AI ANALYSIS ---
+// --- AI ANALYSIS ---
 async function performAiAnalysis(url, tabId, preFetchedHtml = null) {
     try {
         let htmlContent = preFetchedHtml;
@@ -209,6 +210,10 @@ async function performAiAnalysis(url, tabId, preFetchedHtml = null) {
 
             if (!scanData || !scanData.cleanHtml) {
                 chrome.action.setBadgeText({ text: '', tabId: tabId });
+                // ALWAYS unlock the UI if we abort early
+                chrome.storage.local.get(null, (currentData) => {
+                    chrome.storage.local.set({ ...currentData, isAiScanning: false });
+                });
                 return;
             }
             htmlContent = scanData.cleanHtml;
@@ -219,38 +224,57 @@ async function performAiAnalysis(url, tabId, preFetchedHtml = null) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url, htmlContent }),
         });
+        
+        if (!aiResponse.ok) throw new Error("Backend AI timeout or error");
         const aiResult = await aiResponse.json();
 
+        // 1. UPDATE STORAGE FIRST (This instantly triggers onChanged in warning.js to unlock the UI)
         chrome.storage.local.get(null, (currentData) => {
+            // Safely calculate the final score
+            const calculatedScore = aiResult.safe === false ? (aiResult.score || currentData.score) : currentData.score;
+            
             const dataToStore = {
                 ...currentData,
                 aiVulnerabilities: aiResult.vulnerabilities || [],
-                score: aiResult.safe === false ? (aiResult.score || currentData.score) : currentData.score,
-                isAiScanning: false,
+                score: calculatedScore,
+                isAiScanning: false, // THIS KILLS THE SPINNER
                 threatType: aiResult.threatType
             };
-            chrome.storage.local.set(dataToStore);
+            
+            chrome.storage.local.set(dataToStore); 
+            // Notice: We deleted the sendMessage callbacks! The UI handles itself now!
         });
 
-        chrome.tabs.sendMessage(tabId, {
-            type: 'aiAnalysisComplete',
-            payload: aiResult
-        }).catch(() => { });
-
-        const tab = await chrome.tabs.get(tabId);
-        const isTabOnWarningPage = tab.url.includes('warning.html');
-
-        if (aiResult.safe === false && !isTabOnWarningPage) {
+        // 2. ALWAYS LOG TO TELEMETRY FOR THE PIE CHART
+        if (aiResult.safe === false) {
             updateLocalStats();
+            // This guarantees the Upgraded AI event reaches your backend
             logThreatToBackend(url, "Blocked_by_AI", aiResult.threatType || "Suspicious"); 
 
-            const warningPageUrl = chrome.runtime.getURL('warning.html'); // Kept exactly as requested
-            chrome.tabs.update(tabId, { url: warningPageUrl });
+            // 3. Fallback: Re-route to warning page if they somehow navigated away
+            try {
+                const tab = await chrome.tabs.get(tabId);
+                if (!tab.url.includes('warning.html')) {
+                    const warningPageUrl = chrome.runtime.getURL('warning.html');
+                    chrome.tabs.update(tabId, { url: warningPageUrl });
+                }
+            } catch (tabError) {
+                // Tab was closed by user before AI finished. Ignore safely.
+            }
         } else {
             chrome.action.setBadgeText({ text: '', tabId: tabId });
         }
+
     } catch (error) {
         console.error('[SafeTabGuard] Error during AI scan:', error);
+        
+        // FAILSAFE: Ensure the UI spinner stops even if Render server crashes
+        chrome.storage.local.get(null, (currentData) => {
+            chrome.storage.local.set({
+                ...currentData,
+                isAiScanning: false 
+            });
+        });
     }
 }
 
@@ -266,3 +290,59 @@ function updateLocalStats() {
         chrome.storage.local.set({ blockedStats: stats });
     });
 }
+
+// Add this inside background.js
+
+const PRIVACY_ENGINE_ID = "stg-privacy-engine";
+
+async function updateDynamicPrivacyEngine(isCanvasEnabled, isWebRtcEnabled) {
+    try {
+        // 1. Always unregister the old scripts first to prevent duplicates
+        await chrome.scripting.unregisterContentScripts({ ids: [PRIVACY_ENGINE_ID] }).catch(() => {});
+
+        const scriptsToInject = [];
+        if (isCanvasEnabled) scriptsToInject.push("content/canvas_poison.js");
+        if (isWebRtcEnabled) scriptsToInject.push("content/webrtc_poison.js");
+
+        // 2. If both are off, we just exit. No scripts will be injected!
+        if (scriptsToInject.length === 0) {
+            console.log("[STG] Privacy Engine Unregistered (Disabled)");
+            return;
+        }
+
+        // 3. Register the scripts to run perfectly at document_start in the MAIN world
+        await chrome.scripting.registerContentScripts([{
+            id: PRIVACY_ENGINE_ID,
+            matches: ["<all_urls>"],
+            js: scriptsToInject,
+            runAt: "document_start",
+            world: "MAIN",
+            allFrames: true
+        }]);
+        
+        console.log("[STG] Privacy Engine Registered (Active)");
+    } catch (error) {
+        console.error("Failed to update dynamic scripts:", error);
+    }
+}
+
+// Watch for the React Dashboard toggle changes!
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local') {
+        if (changes.canvasNoiseEnabled || changes.webrtcMaskingEnabled) {
+            // Get the current state of both toggles
+            chrome.storage.local.get(['canvasNoiseEnabled', 'webrtcMaskingEnabled'], (data) => {
+                const isCanvasOn = data.canvasNoiseEnabled !== false;
+                const isWebRtcOn = data.webrtcMaskingEnabled !== false;
+                updateDynamicPrivacyEngine(isCanvasOn, isWebRtcOn);
+            });
+        }
+    }
+});
+
+// Run once on install/startup to ensure they are registered correctly
+chrome.runtime.onStartup.addListener(() => {
+    chrome.storage.local.get(['canvasNoiseEnabled', 'webrtcMaskingEnabled'], (data) => {
+        updateDynamicPrivacyEngine(data.canvasNoiseEnabled !== false, data.webrtcMaskingEnabled !== false);
+    });
+});

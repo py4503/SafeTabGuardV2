@@ -152,6 +152,25 @@ function App() {
     fetchDashboardData();
   }, []);
 
+  // Group the recentLogs into the format the dynamic Pie Chart needs
+  const groupedThreatData = React.useMemo(() => {
+    if (!recentLogs) return [];
+    
+    return recentLogs.reduce((acc, log) => {
+      // Fallback to 'Suspicious' if the threat type is somehow missing
+      const categoryName = log.recordedThreatType || 'Suspicious'; 
+      
+      const existingCategory = acc.find(item => item.name === categoryName);
+      
+      if (existingCategory) {
+        existingCategory.value += 1;
+      } else {
+        acc.push({ name: categoryName, value: 1 });
+      }
+      return acc;
+    }, []);
+  }, [recentLogs]);
+
   return (
     <div className="min-h-screen w-full bg-slate-950 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-900 via-[#020617] to-black text-slate-200 font-sans selection:bg-cyan-500/30 flex justify-center">
       
@@ -249,7 +268,7 @@ function App() {
                   {loading ? (
                     <div className="text-slate-500 animate-pulse font-medium tracking-wide">Loading engine data...</div>
                   ) : (
-                    <ThreatChart summaryData={summary} />
+                    <ThreatChart dynamicThreatData={groupedThreatData} />
                   )}
                 </div>
               </div>

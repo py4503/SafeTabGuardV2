@@ -64,7 +64,7 @@ function App() {
         }
 
         try {
-          const response = await fetch('http://localhost:5000/api/devices/settings', {
+          const response = await fetch('https://safetabguardv2.onrender.com/api/devices/settings', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
